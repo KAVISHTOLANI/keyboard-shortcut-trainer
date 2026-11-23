@@ -1,12 +1,438 @@
-import {useEffect,useMemo,useState} from 'react';import {uid,toMarkdown,csv} from './logic';import './styles.css';
-const cfg={"slug":"keyboard-shortcut-trainer","name":"Keytempo","purpose":"Keyboard shortcut exercises with timing, accuracy, and local progress history.","kind":"keyboard","fields":["Shortcut","platform","description","difficulty","hint"],"accent":"purple"} as const;const pages=[['home','Home'],['workspace','Trainer'],['guide','Shortcut guide'],['examples','Practice history'],['reference','Keyboard guide'],['help','Help']] as const;type Page=typeof pages[number][0];type Item={id:string;title:string;createdAt:string;[key:string]:string};const key='local-portfolio:'+cfg.slug;const makeDemo=():Item[]=>['Field note — Alder','Follow-up — Miro','Review — Sol','Plan — Juniper','Archive — Nia','Decision — Rowan','Reminder — Theo','Research — Imani','Checklist — Ellis','Exception — Saffron'].map((title,i)=>({id:'demo-'+i,title,createdAt:new Date(Date.now()-i*86400000).toISOString(),[cfg.fields[1]]:['In focus','Scheduled','Reviewed','Waiting','Reference'][i%5],[cfg.fields[2]]:['Ready','Needs review','Complete','Paused','Archived'][i%5],[cfg.fields[3]]:new Date(Date.now()+(i-3)*86400000).toISOString().slice(0,10),[cfg.fields[4]]:i===4?'A longer fictional note showing a realistic exception, the decision taken, and what should be checked before the record is used again.':'Fictional demo data for a populated local workspace.'}));function download(n:string,s:string,t='text/plain'){const x=document.createElement('a');x.href=URL.createObjectURL(new Blob([s],{type:t}));x.download=n;x.click();URL.revokeObjectURL(x.href)}
-export default function App(){const requested=location.hash.slice(1);const [page,setPage]=useState<Page|'notfound'>(()=>pages.some(([id])=>id===requested)?requested as Page:requested?'notfound':'home');const [records,setRecords]=useState<Item[]>(()=>{try{return JSON.parse(localStorage.getItem(key)||'null')||makeDemo()}catch{return makeDemo()}});const [form,setForm]=useState<Record<string,string>>({});const [query,setQuery]=useState('');const [notice,setNotice]=useState('');const [answer,setAnswer]=useState('');const [editing,setEditing]=useState<Item|null>(null);useEffect(()=>{document.title=(page==='home'?cfg.name:page==='notfound'?'Page not found':cfg.name+' — '+page);if(page!=='notfound')location.hash=page},[page]);const save=(x:Item[])=>{setRecords(x);localStorage.setItem(key,JSON.stringify(x))};const filtered=useMemo(()=>records.filter(r=>JSON.stringify(r).toLowerCase().includes(query.toLowerCase())),[records,query]);const add=(ev:React.FormEvent)=>{ev.preventDefault();const title=form[cfg.fields[0]]?.trim();if(!title){setNotice('Add a '+cfg.fields[0].toLowerCase()+' before saving.');return}const next={id:editing?.id||uid(),title,createdAt:editing?.createdAt||new Date().toISOString()} as Item;cfg.fields.forEach(f=>next[f]=form[f]||'');save(editing?records.map(r=>r.id===editing.id?next:r):[next,...records]);setForm({});setEditing(null);setNotice(editing?'Record updated locally.':'Saved locally. You can now find it in the archive or export it.')};const importJson=async(file?:File)=>{if(!file)return;try{const parsed=JSON.parse(await file.text());if(!Array.isArray(parsed)||!parsed.every(x=>x&&typeof x.title==='string'))throw new Error();save(parsed);setNotice('Imported '+parsed.length+' records into this browser.')}catch{setNotice('That file is not a valid export. Your existing records were left unchanged.')}};return <div className={'app '+cfg.accent}><div className="shell"><header><div className="brand"><small>LOCAL EDITION</small>{cfg.name}</div><nav aria-label="Primary">{pages.map(([id,label])=><button className={page===id?'active':''} key={id} onClick={()=>setPage(id)}>{label}</button>)}</nav></header>{page==='home'&&<Home records={records} open={()=>setPage('workspace')}/>} {page==='workspace'&&<Workspace/>}{page==='notfound'&&<NotFound/>}{page==='guide'&&<Guide title="Shortcut guide"/>}{page==='examples'&&<Examples/>}{page==='reference'&&<Reference/>}{page==='help'&&<Help/>}</div></div>;
-function Home({records,open}:{records:Item[];open:()=>void}){return <><section className="hero"><div><p className="eyebrow">A CLEARER WAY TO WORK LOCALLY</p><h1>Keytempo keeps the important details <i>findable.</i></h1><p>Shortcut practice works when the prompt, key combination, timing, and correction are all visible at once.</p><div className="actions"><button className="primary" onClick={open}>Open trainer</button><button onClick={()=>download(cfg.slug+'-demo.md',toMarkdown(cfg.name,records))}>Export demo</button></div></div><aside className="preview"><div className="preview-head">LIVE SAMPLE <span>● DEMO DATA</span></div><div className="preview-title">What is ready today</div>{records.slice(0,3).map((r,i)=><div className="peek" key={r.id}><div><b>{r.title}</b><br/><small>{r[cfg.fields[1]]}</small></div><span>{i===0?'NOW':'SAVED'}</span></div>)}<div className="preview-foot">No account. No sync. Export when you choose.</div></aside></section><section className="section"><p className="eyebrow">01 / FIRST RECORD</p><h2>Begin with a record you will need again.</h2><p>Choose a prompt, type the shortcut, read the feedback, and revisit the saved practice history.</p><div className="card-grid"><div className="info-card"><strong>1. Name the detail</strong><p>Use the first field for the thing you will search for later, rather than a vague catch-all.</p></div><div className="info-card"><strong>2. Add context</strong><p>Record the practical facts beside it: status, timing, and the note that explains the decision.</p></div><div className="info-card"><strong>3. Review deliberately</strong><p>Search your local history, export when needed, and remove data that is no longer useful.</p></div></div></section><section className="section story"><p className="eyebrow">02 / WHY THIS RECORD EXISTS</p><h2>Small details are where useful decisions begin.</h2><p>{cfg.purpose} This is deliberately a local record rather than a social feed, an account portal, or an automated recommendation. It gives you a calm place to capture the exact fact, its context, and the practical next question while you still remember why it matters.</p><p>Every entry is searchable by the words you wrote. Use concise fields for things you expect to compare later, then use the note for nuance: an exception, an uncertainty, or the reason a future version of you should pause before acting.</p></section><section className="section"><p className="eyebrow">03 / THE CURRENT DESK</p><h2>Ten examples, clearly fictional.</h2><p>The first records are labelled demo data. They exist to demonstrate active, scheduled, reviewed, and archived states—never to imply real people, transactions, outcomes, or activity.</p><div className="card-grid">{records.slice(0,6).map((r,i)=><div className="info-card" key={r.id}><strong>{String(i+1).padStart(2,'0')} · {r.title}</strong><p>{r[cfg.fields[1]]} · {r[cfg.fields[2]]}<br/>{r[cfg.fields[4]]}</p></div>)}</div></section><section className="section"><p className="eyebrow">04 / A PRACTICAL LOOP</p><h2>Capture. Review. Carry forward.</h2><div className="card-grid"><div className="info-card"><strong>Capture</strong><p>Open the workspace when the detail is fresh. The required title prevents a record that cannot be found later.</p></div><div className="info-card"><strong>Review</strong><p>Search by a name, category, status, or note. Empty results are an invitation to change the query, not a dead end.</p></div><div className="info-card"><strong>Carry forward</strong><p>Export a Markdown or CSV copy before a handoff, a planning session, or a browser reset. Local data is yours to move.</p></div></div></section><section className="section"><p className="eyebrow">05 / WHAT THE TOOL DOES NOT DO</p><h2>Clear boundaries are part of the design.</h2><p>This app does not silently synchronize, infer facts, send reminders, or make a recommendation for you. Dates, labels, financial figures, health-related notes, disposal guidance, and any decisions based on them depend entirely on the information you enter and the context you verify.</p></section><section className="section"><p className="eyebrow">06 / KEEP A PORTABLE COPY</p><h2>Local-first should never mean trapped.</h2><p>Use JSON import and export for a browser-local backup, or CSV and Markdown when you need a readable copy. Imported JSON replaces the current local collection only after the file is successfully parsed; malformed files leave the saved records unchanged and show a clear error.</p></section><section className="section"><p className="eyebrow">07 / CONTINUE IN THE TOOL</p><h2>Use the real workspace, not a mock-up.</h2><p>The preview above is built from the same saved records used in the workspace. Open it to add, edit, remove, filter, import, and export local data.</p><div className="actions"><button className="primary" onClick={open}>Open workspace</button></div></section><footer className="section footer"><p className="eyebrow">08 / LOCAL PROJECT NOTES</p><p>This product stores its data in the active browser profile. Read the guide and limitations before relying on it for a consequential decision.</p></footer></>}
-function Workspace(){return <section className="workspace"><div className="toolbar"><input aria-label="Search records" value={query} onChange={e=>setQuery(e.target.value)} placeholder={'Search '+cfg.name}/><button onClick={()=>download(cfg.slug+'.md',toMarkdown(cfg.name,records))}>Export Markdown</button><button onClick={()=>download(cfg.slug+'.csv',csv(records),'text/csv')}>Export CSV</button><button onClick={()=>download(cfg.slug+'.json',JSON.stringify(records,null,2),'application/json')}>Export JSON</button><label className="import">Import JSON<input type="file" accept="application/json" onChange={e=>importJson(e.target.files?.[0])}/></label></div><div className="grid"><form onSubmit={add}><h2>Add keyboard</h2>{cfg.fields.map((f,i)=><label key={f}>{f}<input required={i===0} value={form[f]||''} onChange={e=>setForm({...form,[f]:e.target.value})} placeholder={'Enter '+f.toLowerCase()}/></label>)}<button className="primary">{editing?'Save changes':'Save record'}</button>{editing&&<button type="button" onClick={()=>{setEditing(null);setForm({})}}>Cancel edit</button>}{notice&&<p className="notice" role="status">{notice}</p>}</form><article className="records"><h2>{filtered.length} records</h2>{filtered.length===0?<p className="empty">No records match that search. Clear the search or create the first local record.</p>:filtered.map(r=><section className="card" key={r.id}><div><h3>{r.title}</h3>{cfg.fields.slice(1).map(f=><p key={f}><b>{f}</b> {r[f]||'—'}</p>)}</div><div><button onClick={()=>{setEditing(r);const values:Record<string,string>={};cfg.fields.forEach(f=>values[f]=r[f]||'');setForm(values);window.scrollTo({top:0,behavior:'smooth'})}}>Edit</button><button onClick={()=>{save(records.filter(x=>x.id!==r.id));setNotice('Record removed from this browser.')}}>Delete</button></div></section>)}</article></div><Special/></section>}
-function NotFound(){return <section className="section"><p className="eyebrow">404 / LOCAL ROUTE</p><h2>That page is not in this edition.</h2><p>Use the navigation to return to a known section.</p><button className="primary" onClick={()=>setPage('home')}>Return home</button></section>}
-function Guide({title}:{title:string}){return <Content kicker="02 / FIELD GUIDE" title={title} body="shortcut, modifier, accuracy, timing are the working vocabulary in this tool. The guide does not prescribe a single right process; it explains what each field records, why it is there, and how to keep the record useful over time." cards={[['Use plain language','Write the term that a future version of you will recognise quickly.'],['Keep dates practical','Use a date only when it helps you decide what to do or review next.'],['Separate facts from notes','Use short fields for filtering and the note for the detail that does not fit a label.']]}/>}
-function Examples(){return <Content kicker="03 / WORKED EXAMPLES" title="A record with enough context." body="The sample records are fictional and labelled as demo data. They show the difference between a title that can be found, structured fields that can be scanned, and a note that preserves the reason behind a decision." cards={[['A current item','Marked In focus, with a near date and a concise note.'],['A scheduled item','Has a future date so it appears when you are planning ahead.'],['An edge case','Uses a longer note to prove that more context remains readable.']]}/>}
-function Reference(){return <Content kicker="04 / METHOD" title="How this local tool handles information." body="Keytempo stores records in this browser using localStorage. Search runs against the saved local data. Markdown and CSV exports are created in your browser. There is no account, server synchronization, automatic backup, or claim that this record is authoritative outside the information you enter." cards={[['Local first','Your records remain in the active browser profile until you export or remove them.'],['Simple exports','Exports are designed to be readable and portable, not a full database backup format.'],['Human review','Dates, amounts, labels, and reminders depend on the data you enter and should be checked before acting.']]}/>}
-function Help(){return <section className="section"><p className="eyebrow">05 / HELP & LIMITS</p><h2>Useful boundaries make a tool more trustworthy.</h2><div className="faq"><details open><summary>Where is my data stored?</summary><p>In localStorage for this browser profile. Clearing browser data may remove it; use an export for a copy you control.</p></details><details><summary>Is the demo data real?</summary><p>No. It is fictional sample material designed to show populated, long-text, status, and archive states.</p></details><details><summary>What happens when a form is incomplete?</summary><p>The first field is required. The form gives a plain-language message and keeps the entered values available to correct.</p></details><details><summary>Can this replace specialist advice?</summary><p>No. It is a personal organization aid. The limitations and relevant disclaimers should guide how you use the records.</p></details></div></section>}
-function Content({kicker,title,body,cards}:{kicker:string;title:string;body:string;cards:string[][]}){return <section className="section"><p className="eyebrow">{kicker}</p><h2>{title}</h2><p>{body}</p><div className="card-grid">{cards.map(c=><div className="info-card" key={c[0]}><strong>{c[0]}</strong><p>{c[1]}</p></div>)}</div></section>}
-function Special(){if((cfg.kind as string)==='algorithm')return <section className="lab"><h2>Visible operations</h2><p>Use these controls to see an ordered set change. They are deliberately small: the explanation matters more than spectacle.</p><button onClick={()=>setAnswer('Values sorted: 4, 7, 12, 19')}>Sort sample</button><button onClick={()=>setAnswer('One comparison explained: 12 is greater than 7, so it moves after 7.')}>Explain step</button><p role="status">{answer}</p></section>;if((cfg.kind as string)==='garden')return <section className="lab"><h2>Bed grid</h2><div className="bed">{Array.from({length:12},(_,i)=><button key={i} onClick={()=>setAnswer('Plant marker placed in bed cell '+(i+1))}>{answer.includes(String(i+1))?'●':'+'}</button>)}</div><p role="status">{answer||'Select a cell to place a marker.'}</p></section>;return <section className="lab"><h2>Practice note</h2><p>Use this local workspace with the guide alongside it. A good record is specific enough to help later and short enough to keep current.</p></section>}}
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { DemoTag, EmptyState, Field, Landing, NotFound, Notice, PageHead, Shell, uid, useFlash, usePersistentState, useRoute } from './shared/ui';
+import { addDays, formatDay, todayISO } from './shared/dates';
+import {
+  DECKS, FAST_MS, choicesFor, comboFor, comboFromEvent, formatMs, isReserved, keyCaps, mastery, nextBox, parseCombo, pickNext, spokenCombo, summarize,
+  type Combo, type Deck, type Platform, type Result, type Session, type Shortcut,
+} from './lib/keys';
+
+const KEY = 'keytempo:store';
+const NAV = [
+  { to: '/', label: 'Overview' },
+  { to: '/practice', label: 'Practice' },
+  { to: '/decks', label: 'Decks' },
+  { to: '/progress', label: 'Progress' },
+];
+
+interface Store {
+  platform: Platform;
+  deck: string;
+  length: number;
+  boxes: Record<string, number>;
+  history: Session[];
+  custom: Shortcut[];
+}
+
+const detectPlatform = (): Platform => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? 'mac' : 'win');
+
+function demoStore(): Store {
+  const t = todayISO();
+  const hist: [number, string, number, number, number][] = [[-13, 'text', 10, 50, 3900], [-11, 'text', 10, 60, 3300], [-8, 'browser', 10, 40, 4600], [-6, 'text', 20, 75, 2500], [-3, 'browser', 10, 60, 3100], [-1, 'text', 20, 85, 1900]];
+  return {
+    platform: detectPlatform(),
+    deck: 'text',
+    length: 10,
+    boxes: { 'text:copy': 5, 'text:paste': 5, 'text:cut': 4, 'text:undo': 4, 'text:all': 4, 'text:save': 3, 'text:find': 3, 'text:redo': 2, 'browser:reload': 3, 'browser:newtab': 4, 'browser:reopen': 2 },
+    history: hist.map(([d, deck, total, accuracy, medianMs]) => ({ id: uid('s'), date: addDays(t, d), deck, platform: detectPlatform(), total, accuracy, medianMs, demo: true })),
+    custom: [{ id: 'c1', action: 'Toggle dark mode (example)', mac: 'Shift+Meta+L', win: 'Shift+Meta+L' }],
+  };
+}
+
+export default function App() {
+  const [route] = useRoute();
+  const [store, setStore] = usePersistentState<Store>(KEY, demoStore);
+  const decks = useMemo<Deck[]>(() => [...DECKS, { id: 'custom', name: 'My shortcuts', blurb: 'Shortcuts you add yourself.', items: store.custom }], [store.custom]);
+  const ctx = { store, setStore, decks };
+  let page: ReactNode;
+  if (route === '/') page = <Home />;
+  else if (route === '/practice') page = <Practice {...ctx} />;
+  else if (route === '/decks') page = <Decks {...ctx} />;
+  else if (route === '/progress') page = <Progress {...ctx} />;
+  else page = <NotFound />;
+  return (
+    <Shell name="Keytempo" wordmark={['Key', 'tempo']} nav={NAV} route={route} cta={{ to: '/practice', label: 'Start practising' }} footerNote="Practice stays in this browser. Shortcuts are app defaults and may differ with your settings or keyboard layout.">
+      {page}
+    </Shell>
+  );
+}
+
+type Ctx = { store: Store; setStore: (s: Store | ((s: Store) => Store)) => void; decks: Deck[] };
+
+function Caps({ combo, platform, big = false }: { combo: Combo; platform: Platform; big?: boolean }) {
+  return (
+    <span className={`caps ${big ? 'big' : ''}`} aria-label={spokenCombo(combo, platform)} role="img">
+      {keyCaps(combo, platform).map((k, i) => <kbd key={i}>{k}</kbd>)}
+    </span>
+  );
+}
+
+/* ---------- Home ---------- */
+function HeroPreview() {
+  return (
+    <div className="hero-kt">
+      <div className="kt-progress" aria-hidden="true"><i style={{ width: '70%' }} /></div>
+      <p className="kt-count small mono">7 / 10 · Web browser</p>
+      <p className="kt-prompt">Reopen closed tab</p>
+      <span className="caps big hero-caps" aria-label="Command Shift T" role="img"><kbd style={{ ['--k' as string]: 0 }}>⇧</kbd><kbd style={{ ['--k' as string]: 1 }}>⌘</kbd><kbd style={{ ['--k' as string]: 2 }}>T</kbd></span>
+      <p className="kt-ok"><span className="badge badge-ok">First try</span> <span className="mono">1.4 s</span></p>
+      <div className="kt-mini">
+        <span><b>85%</b> accuracy</span><span><b>1.9 s</b> median</span><span><b>12</b> mastered</span>
+      </div>
+    </div>
+  );
+}
+
+function Home() {
+  return (
+    <Landing
+      eyebrow="Keyboard shortcut trainer"
+      title={<>Stop reaching <em>for the mouse.</em></>}
+      lead="Short timed drills for the shortcuts you use every day. Press the real keys, get instant feedback, and let spaced repetition bring back the ones you keep missing."
+      primary={{ href: '#/practice', label: 'Start practising' }}
+      secondary={{ href: '#/decks', label: 'Browse decks' }}
+      previewLabel="Practice round"
+      preview={<HeroPreview />}
+      meta={['Mac and Windows', 'No account', 'Demo history included']}
+      steps={[
+        { title: 'Pick a deck', body: 'Text editing, web browser, VS Code — or your own shortcuts.' },
+        { title: 'Press the keys', body: 'Each prompt names an action; press the combo. Three tries, then the answer is shown.' },
+        { title: 'Watch the tempo', body: 'Accuracy and median time per round, with weak shortcuts coming back more often.' },
+      ]}
+      features={[
+        { title: 'Real key capture', body: 'Reads the physical key, so ⌥ and ⇧ never turn letters into symbols.' },
+        { title: 'Browser-safe', body: 'Shortcuts the browser won’t release (like closing a tab) are asked as multiple choice instead.' },
+        { title: 'Spaced repetition', body: 'Five Leitner boxes: quick first-try answers move up, misses go back to box 1.' },
+        { title: 'Your own deck', body: 'Record shortcuts from any app with a key recorder and drill them too.' },
+      ]}
+      closing={{ title: <>Ten prompts. <em>About a minute.</em></>, action: { href: '#/practice', label: 'Start a round' } }}
+    />
+  );
+}
+
+/* ---------- Practice ---------- */
+interface Round { deck: Deck; ids: string[]; length: number; results: Result[]; current: string; started: number; wrong: Combo[]; status: 'ask' | 'right' | 'reveal'; choices: Combo[] | null }
+
+function Practice({ store, setStore, decks }: Ctx) {
+  const [round, setRound] = useState<Round | null>(null);
+  const [done, setDone] = useState<{ results: Result[]; deck: Deck } | null>(null);
+  const [now, setNow] = useState(0);
+  const [live, setLive] = useState('');
+  const area = useRef<HTMLDivElement>(null);
+  const advanceTimer = useRef<number | undefined>(undefined);
+  const latest = useRef(store);
+  latest.current = store;
+  const deck = decks.find((d) => d.id === store.deck) ?? decks[0];
+  const p = store.platform;
+  const keyOf = (d: Deck, id: string) => `${d.id}:${id}`;
+
+  useEffect(() => {
+    if (!round || round.status !== 'ask') return;
+    const t = window.setInterval(() => setNow(performance.now()), 100);
+    return () => window.clearInterval(t);
+  }, [round]);
+  useEffect(() => () => window.clearTimeout(advanceTimer.current), []);
+  useEffect(() => { if (round?.status === 'ask' && !round.choices) area.current?.focus(); }, [round?.current, round?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function makeAsk(d: Deck, id: string): Pick<Round, 'current' | 'started' | 'wrong' | 'status' | 'choices'> {
+    const item = d.items.find((i) => i.id === id)!;
+    const target = comboFor(item, p);
+    const pool = [...d.items, ...DECKS.flatMap((x) => x.items)].map((i) => comboFor(i, p));
+    return { current: id, started: performance.now(), wrong: [], status: 'ask', choices: isReserved(target, p) ? choicesFor(target, pool) : null };
+  }
+  function start(ids?: string[], length?: number) {
+    const pool = ids ?? deck.items.map((i) => i.id);
+    if (!pool.length) return;
+    const boxes = Object.fromEntries(pool.map((id) => [id, store.boxes[keyOf(deck, id)] ?? 1]));
+    const first = pickNext(pool, boxes, null);
+    setDone(null);
+    setRound({ deck, ids: pool, length: length ?? store.length, results: [], ...makeAsk(deck, first) });
+    setLive('');
+  }
+  function finish(r: Round, results: Result[]) {
+    const s = summarize(results);
+    setStore((st) => ({ ...st, history: [...st.history, { id: uid('s'), date: todayISO(), deck: r.deck.id, platform: p, total: s.total, accuracy: s.accuracy, medianMs: s.medianMs }] }));
+    setRound(null);
+    setDone({ results, deck: r.deck });
+  }
+  function record(r: Round, correct: boolean, wrong: Combo[]) {
+    const ms = Math.round(performance.now() - r.started);
+    const res: Result = { id: r.current, correct, firstTry: correct && wrong.length === 0, ms, wrong };
+    const k = keyOf(r.deck, r.current);
+    setStore((st) => ({ ...st, boxes: { ...st.boxes, [k]: nextBox(st.boxes[k] ?? 1, res) } }));
+    const item = r.deck.items.find((i) => i.id === r.current)!;
+    const next: Round = { ...r, wrong, results: [...r.results, res], status: correct ? 'right' : 'reveal' };
+    setRound(next);
+    setLive(correct ? `Correct, ${formatMs(ms)}.` : `The answer is ${spokenCombo(comboFor(item, p), p)}. Press Enter to continue.`);
+    if (correct) advanceTimer.current = window.setTimeout(() => advance(next), 650);
+  }
+  function advance(r: Round) {
+    window.clearTimeout(advanceTimer.current);
+    if (r.results.length >= r.length) return finish(r, r.results);
+    const boxes = Object.fromEntries(r.ids.map((id) => [id, latest.current.boxes[keyOf(r.deck, id)] ?? 1]));
+    setRound((cur) => (cur ? { ...cur, results: r.results, ...makeAsk(r.deck, pickNext(r.ids, boxes, r.current)) } : cur));
+  }
+  function answer(r: Round, combo: Combo) {
+    const item = r.deck.items.find((i) => i.id === r.current)!;
+    if (combo === comboFor(item, p)) return record(r, true, r.wrong);
+    const wrong = [...r.wrong, combo];
+    const limit = r.choices ? 2 : 3;
+    if (wrong.length >= limit) return record(r, false, wrong);
+    setRound({ ...r, wrong });
+    setLive(`Not quite: you pressed ${spokenCombo(combo, p)}. ${limit - wrong.length} ${limit - wrong.length === 1 ? 'try' : 'tries'} left.`);
+  }
+  function onKey(e: React.KeyboardEvent) {
+    if (!round) return;
+    if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); return round.results.length ? finish(round, round.results) : setRound(null); }
+    if (round.status !== 'ask') {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advance(round); }
+      return;
+    }
+    if (round.choices) return;
+    const combo = comboFromEvent(e);
+    if (!combo) return;
+    e.preventDefault();
+    e.stopPropagation();
+    answer(round, combo);
+  }
+
+  if (done) return <RoundSummary done={done} platform={p} onAgain={() => start()} onMissed={(ids) => start(ids, Math.min(10, ids.length * 2))} />;
+
+  if (!round) {
+    return (
+      <div className="stack">
+        <PageHead eyebrow="Practice" title={<>Ready when <em>you are.</em></>} description="Each round asks for actions one at a time. Press the shortcut with the practice area focused. Escape ends the round early." />
+        <div className="card stack">
+          <div className="filters plain">
+            <Field label="Deck">{(pr) => <select {...pr} value={deck.id} onChange={(e) => setStore({ ...store, deck: e.target.value })}>{decks.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.items.length})</option>)}</select>}</Field>
+            <Field label="Round length">{(pr) => <select {...pr} value={store.length} onChange={(e) => setStore({ ...store, length: Number(e.target.value) })}><option value={5}>5 prompts</option><option value={10}>10 prompts</option><option value={20}>20 prompts</option></select>}</Field>
+            <div className="field"><span className="label">Keyboard</span>
+              <div className="tabs" role="radiogroup" aria-label="Keyboard">
+                <button type="button" role="radio" aria-checked={p === 'mac'} onClick={() => setStore({ ...store, platform: 'mac' })}>Mac</button>
+                <button type="button" role="radio" aria-checked={p === 'win'} onClick={() => setStore({ ...store, platform: 'win' })}>Windows / Linux</button>
+              </div>
+            </div>
+          </div>
+          {deck.items.length ? (
+            <div className="row-between">
+              <p className="small muted">{deck.blurb} Mastered: {mastery(deck.items, store.boxes, deck.id)}%.</p>
+              <button type="button" className="btn btn-primary btn-lg" onClick={() => start()}>Start round</button>
+            </div>
+          ) : <EmptyState title="This deck is empty" actions={<a className="btn" href="#/decks">Add shortcuts</a>}>Add your own shortcuts on the Decks page first.</EmptyState>}
+        </div>
+        <Notice kind="info">Some shortcuts — like closing or opening tabs — are kept by the browser and can’t be pressed here. Those are asked as multiple choice.</Notice>
+      </div>
+    );
+  }
+
+  const item = round.deck.items.find((i) => i.id === round.current)!;
+  const target = comboFor(item, p);
+  const elapsed = round.status === 'ask' ? Math.max(0, now - round.started) : round.results[round.results.length - 1]?.ms ?? 0;
+  const n = round.results.length + (round.status === 'ask' ? 1 : 0);
+  return (
+    <div className="stack">
+      <div className="row-between">
+        <p className="eyebrow">{round.deck.name} · {p === 'mac' ? 'Mac' : 'Windows / Linux'}</p>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => (round.results.length ? finish(round, round.results) : setRound(null))}>End round</button>
+      </div>
+      <div className="kt-progress" role="progressbar" aria-label="Round progress" aria-valuemin={0} aria-valuemax={round.length} aria-valuenow={round.results.length}><i style={{ width: `${(round.results.length / round.length) * 100}%` }} /></div>
+      <div
+        ref={area}
+        className={`practice card status-${round.status} ${round.wrong.length && round.status === 'ask' ? 'shake' : ''}`}
+        tabIndex={0}
+        role="group"
+        aria-label={`Prompt ${n} of ${round.length}: ${item.action}. ${round.choices ? 'Choose the shortcut.' : 'Press the shortcut.'}`}
+        onKeyDown={onKey}
+        data-testid="practice"
+      >
+        <p className="small mono muted">{n} / {round.length}</p>
+        <p className="kt-prompt" data-testid="prompt">{item.action}</p>
+        {round.status === 'ask' && !round.choices && <p className="hint-line">Press the keys now <span className="mono timer">{formatMs(elapsed)}</span></p>}
+        {round.status === 'ask' && round.choices && (
+          <div className="choices" role="group" aria-label="Choose the shortcut">
+            {round.choices.map((c) => <button key={c} type="button" className="choice" disabled={round.wrong.includes(c)} onClick={() => answer(round, c)}><Caps combo={c} platform={p} /></button>)}
+          </div>
+        )}
+        {round.wrong.length > 0 && round.status === 'ask' && <p className="wrong small">You pressed <Caps combo={round.wrong[round.wrong.length - 1]} platform={p} /> — try again.</p>}
+        {round.status === 'right' && <p className="feedback ok"><Caps combo={target} platform={p} big /> <span className="badge badge-ok">{round.wrong.length ? 'Got it' : elapsed <= FAST_MS ? 'First try — fast' : 'First try'}</span> <span className="mono">{formatMs(elapsed)}</span></p>}
+        {round.status === 'reveal' && (
+          <div className="feedback miss stack">
+            <p>The shortcut is <Caps combo={target} platform={p} big /></p>
+            {item.tip && <p className="small muted">{item.tip}</p>}
+            <div><button type="button" className="btn btn-primary" onClick={() => advance(round)}>Next <kbd className="inline">Enter</kbd></button></div>
+          </div>
+        )}
+        {round.status === 'ask' && <div><button type="button" className="btn btn-sm btn-ghost" onClick={() => record(round, false, round.wrong)}>Show answer</button></div>}
+      </div>
+      <p className="sr-only" role="status" aria-live="assertive">{live}</p>
+    </div>
+  );
+}
+
+function RoundSummary({ done, platform, onAgain, onMissed }: { done: { results: Result[]; deck: Deck }; platform: Platform; onAgain: () => void; onMissed: (ids: string[]) => void }) {
+  const s = summarize(done.results);
+  const name = (id: string) => done.deck.items.find((i) => i.id === id);
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Round complete" title={<>{s.accuracy >= 80 ? 'Nicely' : s.accuracy >= 50 ? 'Getting' : 'Keep'} <em>{s.accuracy >= 80 ? 'done.' : s.accuracy >= 50 ? 'there.' : 'going.'}</em></>} description={`${done.deck.name} · ${s.total} prompts`} actions={<><button type="button" className="btn btn-primary" onClick={onAgain}>New round</button>{s.missed.length > 0 && <button type="button" className="btn" onClick={() => onMissed(s.missed)}>Practise the {s.missed.length} missed</button>}</>} />
+      <div className="stats">
+        <div className="stat"><span className="stat-label">First-try accuracy</span><span className="stat-value" data-testid="accuracy">{s.accuracy}%</span></div>
+        <div className="stat"><span className="stat-label">Median time</span><span className="stat-value">{formatMs(s.medianMs)}</span></div>
+        <div className="stat"><span className="stat-label">Under {FAST_MS / 1000} s</span><span className="stat-value">{s.fastCount}</span></div>
+      </div>
+      <div className="table-wrap card flush">
+        <table className="table">
+          <caption className="sr-only">Results for each prompt</caption>
+          <thead><tr><th scope="col">Action</th><th scope="col">Shortcut</th><th scope="col">Your wrong presses</th><th scope="col" className="num">Time</th><th scope="col">Result</th></tr></thead>
+          <tbody>{done.results.map((r, i) => {
+            const it = name(r.id)!;
+            return (
+              <tr key={i}>
+                <th scope="row">{it.action}</th>
+                <td><Caps combo={comboFor(it, platform)} platform={platform} /></td>
+                <td>{r.wrong.length ? r.wrong.map((w, j) => <Caps key={j} combo={w} platform={platform} />) : <span className="muted">—</span>}</td>
+                <td className="num">{formatMs(r.ms)}</td>
+                <td><span className={`badge ${!r.correct ? 'badge-err' : r.firstTry ? 'badge-ok' : 'badge-warn'}`}>{!r.correct ? 'Missed' : r.firstTry ? 'First try' : 'Retry'}</span></td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Decks ---------- */
+function Boxes({ n }: { n: number }) {
+  return <span className="boxes" role="img" aria-label={`Box ${n} of 5`}>{[1, 2, 3, 4, 5].map((i) => <i key={i} className={i <= n ? 'on' : ''} />)}</span>;
+}
+
+function Decks({ store, setStore, decks }: Ctx) {
+  const [tab, setTab] = useState(store.deck);
+  const [q, setQ] = useState('');
+  const deck = decks.find((d) => d.id === tab) ?? decks[0];
+  const p = store.platform;
+  const rows = deck.items.filter((i) => !q.trim() || i.action.toLowerCase().includes(q.trim().toLowerCase()));
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Decks" title={<>What’s <em>on the menu.</em></>} description={`Shown for ${p === 'mac' ? 'Mac' : 'Windows / Linux'} — switch on the Practice page.`} />
+      <div className="tabs" role="tablist" aria-label="Decks">
+        {decks.map((d) => <button key={d.id} type="button" role="tab" aria-selected={d.id === deck.id} aria-checked={d.id === deck.id} onClick={() => setTab(d.id)}>{d.name}</button>)}
+      </div>
+      <div className="card filters">
+        <Field label="Filter actions" className="grow">{(pr) => <input {...pr} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. tab" />}</Field>
+        <div className="field"><span className="label">Mastered</span><span className="display-num">{mastery(deck.items, store.boxes, deck.id)}%</span></div>
+        <button type="button" className="btn btn-primary" disabled={!deck.items.length} onClick={() => { setStore({ ...store, deck: deck.id }); window.location.hash = '/practice'; }}>Practise this deck</button>
+      </div>
+      {deck.id === 'custom' && <CustomForm store={store} setStore={setStore} />}
+      {rows.length ? (
+        <div className="table-wrap card flush">
+          <table className="table">
+            <caption className="sr-only">{deck.name} shortcuts</caption>
+            <thead><tr><th scope="col">Action</th><th scope="col">Shortcut</th><th scope="col">Box</th>{deck.id === 'custom' && <th scope="col"><span className="sr-only">Remove</span></th>}</tr></thead>
+            <tbody>{rows.map((i) => {
+              const c = comboFor(i, p);
+              return (
+                <tr key={i.id}>
+                  <th scope="row">{i.action}{isReserved(c, p) && <span className="badge">Multiple choice</span>}{i.tip && <span className="small muted block">{i.tip}</span>}</th>
+                  <td><Caps combo={c} platform={p} /></td>
+                  <td><Boxes n={store.boxes[`${deck.id}:${i.id}`] ?? 1} /></td>
+                  {deck.id === 'custom' && <td><button type="button" className="btn btn-sm btn-ghost" aria-label={`Remove ${i.action}`} onClick={() => setStore({ ...store, custom: store.custom.filter((x) => x.id !== i.id) })}>Remove</button></td>}
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      ) : <EmptyState title={deck.items.length ? 'No matching actions' : 'No shortcuts yet'}>{deck.items.length ? 'Try another word.' : 'Record one above to start your own deck.'}</EmptyState>}
+    </div>
+  );
+}
+
+function CustomForm({ store, setStore }: Pick<Ctx, 'store' | 'setStore'>) {
+  const [action, setAction] = useState('');
+  const [combo, setCombo] = useState<Combo | null>(null);
+  const [typed, setTyped] = useState('');
+  const [errors, setErrors] = useState<{ action?: string; combo?: string }>({});
+  const [flash, setFlash] = useFlash();
+  const p = store.platform;
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const c = combo ?? (typed.trim() ? parseCombo(typed) : null);
+    const errs: typeof errors = {};
+    if (!action.trim()) errs.action = 'Name the action.';
+    if (!c) errs.combo = typed.trim() ? 'Couldn’t read that — use a form like Ctrl+Shift+K.' : 'Record or type a shortcut.';
+    else if (store.custom.some((x) => comboFor(x, p) === c)) errs.combo = 'That shortcut is already in your deck.';
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    setStore({ ...store, custom: [...store.custom, { id: uid('c'), action: action.trim().slice(0, 80), mac: c!, win: c! }] });
+    setFlash({ kind: 'success', text: `Added “${action.trim()}”${isReserved(c!, p) ? ' — the browser keeps this one, so it’ll be multiple choice' : ''}.` });
+    setAction(''); setCombo(null); setTyped('');
+  }
+  return (
+    <form className="card stack" onSubmit={submit} noValidate>
+      <h2 className="h3">Add a shortcut</h2>
+      {flash && <Notice kind={flash.kind} onDismiss={() => setFlash(null)}>{flash.text}</Notice>}
+      <div className="form-grid two">
+        <Field label="Action" error={errors.action}>{(pr) => <input {...pr} value={action} onChange={(e) => setAction(e.target.value)} placeholder="e.g. Toggle dark mode" />}</Field>
+        <Field label="Shortcut" error={errors.combo} hint="Focus the box and press the keys, or type it below.">{(pr) => (
+          <div {...pr} className={`recorder ${combo ? 'has' : ''}`} tabIndex={0} role="textbox" aria-readonly="true" aria-label={combo ? `Recorded ${spokenCombo(combo, p)}` : 'Shortcut recorder, focus and press keys'}
+            onKeyDown={(e) => { if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) return; const c = comboFromEvent(e); if (!c) return; e.preventDefault(); if (c === 'Backspace' && combo) return setCombo(null); setCombo(c); setTyped(''); }}>
+            {combo ? <Caps combo={combo} platform={p} /> : <span className="muted">Press keys…</span>}
+          </div>
+        )}</Field>
+      </div>
+      <div className="filters plain">
+        <Field label="Or type it" className="grow">{(pr) => <input {...pr} value={typed} onChange={(e) => { setTyped(e.target.value); setCombo(null); }} placeholder="Ctrl+Shift+K" />}</Field>
+        <button type="submit" className="btn btn-primary">Add shortcut</button>
+      </div>
+      <p className="small muted">Custom shortcuts use the same keys on Mac and Windows. Backspace clears a recording.</p>
+    </form>
+  );
+}
+
+/* ---------- Progress ---------- */
+function Progress({ store, setStore, decks }: Ctx) {
+  const [tip, setTip] = useState<string | null>(null);
+  const hist = store.history;
+  const last = hist.slice(-12);
+  const deckName = (id: string) => decks.find((d) => d.id === id)?.name ?? id;
+  const hasDemo = hist.some((h) => h.demo);
+  return (
+    <div className="stack">
+      <PageHead eyebrow="Progress" title={<>Your <em>tempo.</em></>} description="First-try accuracy for each round, and how much of each deck you’ve mastered (box 4 or 5)." actions={hasDemo ? <button type="button" className="btn btn-ghost" onClick={() => setStore({ ...store, history: hist.filter((h) => !h.demo), boxes: {}, custom: store.custom.filter((c) => c.id !== 'c1') })}>Clear demo data</button> : undefined} />
+      {hasDemo && <p><DemoTag /> <span className="small muted">Sample rounds and progress so the charts aren’t empty.</span></p>}
+      <div className="stats">
+        {decks.filter((d) => d.items.length).map((d) => (
+          <div className="stat" key={d.id}><span className="stat-label">{d.name}</span><span className="stat-value">{mastery(d.items, store.boxes, d.id)}%</span><span className="meter" aria-hidden="true"><i style={{ width: `${mastery(d.items, store.boxes, d.id)}%` }} /></span></div>
+        ))}
+      </div>
+      {!hist.length ? <EmptyState title="No rounds yet" actions={<a className="btn btn-primary" href="#/practice">Start a round</a>}>Finish a round and it shows up here.</EmptyState> : (
+        <>
+          <section className="card stack" aria-labelledby="ch-t">
+            <div className="row-between"><h2 id="ch-t" className="h3">Last {last.length} rounds</h2><span className="small muted" aria-live="polite">{tip ?? 'Hover or focus a bar for details'}</span></div>
+            <div className="bars-wrap" onMouseLeave={() => setTip(null)}>
+              <div className="bars-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
+              <div className="bars" role="img" aria-label={last.map((h) => `${formatDay(h.date)}: ${h.accuracy}%`).join('; ')}>
+                {last.map((h, i) => {
+                  const text = `${formatDay(h.date)} · ${deckName(h.deck)} · ${h.accuracy}% · median ${formatMs(h.medianMs)}`;
+                  return (
+                    <div key={h.id} className="bar-col" style={{ ['--i' as string]: i }} tabIndex={0} aria-label={text} onMouseEnter={() => setTip(text)} onFocus={() => setTip(text)} onBlur={() => setTip(null)}>
+                      <div className="bar-stack" style={{ height: `${Math.max(2, h.accuracy)}%` }}><span style={{ flexGrow: 1, background: h.accuracy >= 80 ? 'var(--ok)' : 'var(--accent)' }} /></div>
+                      <span className="bar-label mono">{h.accuracy}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+          <div className="table-wrap card flush">
+            <table className="table">
+              <caption className="sr-only">All rounds, newest first</caption>
+              <thead><tr><th scope="col">Date</th><th scope="col">Deck</th><th scope="col" className="num">Prompts</th><th scope="col" className="num">Accuracy</th><th scope="col" className="num">Median</th></tr></thead>
+              <tbody>{[...hist].reverse().map((h) => <tr key={h.id}><th scope="row" className="nowrap">{formatDay(h.date)}{h.demo && <> <DemoTag /></>}</th><td>{deckName(h.deck)}</td><td className="num">{h.total}</td><td className="num">{h.accuracy}%</td><td className="num">{formatMs(h.medianMs)}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

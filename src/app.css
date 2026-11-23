@@ -1,0 +1,55 @@
+/* Keytempo specific styles */
+kbd, .caps kbd { display: inline-grid; place-items: center; min-width: 1.9em; height: 1.9em; padding: 0 0.45em; border: 1px solid var(--rule); border-bottom-width: 3px; border-radius: 6px; background: var(--surface); color: var(--text); font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; line-height: 1; }
+.caps { display: inline-flex; gap: 4px; align-items: center; vertical-align: middle; white-space: nowrap; }
+.caps + .caps { margin-left: 6px; }
+.caps.big kbd { min-width: 2.4em; height: 2.4em; font-size: 1.15rem; border-radius: 9px; }
+kbd.inline { margin-left: 6px; font-size: 0.7rem; height: 1.6em; background: transparent; color: inherit; border-color: currentColor; }
+.block { display: block; margin-top: 2px; }
+th .badge { margin-left: 8px; }
+
+/* Practice */
+.kt-progress { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.kt-progress i { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width 0.4s var(--ease); }
+.practice { min-height: 300px; display: grid; align-content: center; justify-items: center; gap: 14px; text-align: center; padding: 36px 20px; outline: none; transition: box-shadow 0.2s var(--ease), border-color 0.2s; }
+.practice:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.practice.status-right { border-color: var(--ok); background: color-mix(in srgb, var(--ok-soft) 60%, var(--surface)); }
+.practice.status-reveal { border-color: var(--warn); }
+.practice.shake { animation: shake 0.3s var(--ease); }
+@keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.kt-prompt { margin: 0; font-family: var(--font-display); font-weight: var(--display-weight); font-size: clamp(1.7rem, 4vw, 2.6rem); line-height: 1.1; letter-spacing: -0.01em; }
+.hint-line { margin: 0; color: var(--muted); }
+.timer { margin-left: 8px; color: var(--text); }
+.wrong { margin: 0; color: var(--warn); }
+.feedback { margin: 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; }
+.feedback.miss { display: grid; justify-items: center; }
+.feedback p { margin: 0; }
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: min(100%, 420px); }
+.choice { padding: 14px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+.choice:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.choice:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+
+/* Decks */
+.boxes { display: inline-flex; gap: 3px; }
+.boxes i { width: 10px; height: 10px; border-radius: 2px; background: var(--surface-2); border: 1px solid var(--border); }
+.boxes i.on { background: var(--accent); border-color: var(--accent); }
+.recorder { display: flex; align-items: center; min-height: 44px; padding: 6px 12px; border: 1px dashed var(--rule); border-radius: var(--radius-sm); background: var(--surface); cursor: text; }
+.recorder:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-style: solid; }
+.recorder.has { border-style: solid; }
+.filters.plain { padding: 0; border: 0; box-shadow: none; background: none; }
+.card.flush { padding: 0; }
+.meter { display: block; height: 5px; margin-top: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+
+/* Hero */
+.hero-kt { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 6px 4px; }
+.hero-kt .kt-progress { width: 100%; }
+.kt-count { margin: 0; color: var(--muted); }
+.hero-kt .kt-prompt { font-size: 1.9rem; }
+.hero-caps kbd { animation: press 3.2s var(--ease) infinite; animation-delay: calc(var(--k) * 140ms + 600ms); }
+@keyframes press { 0%, 12% { transform: none; background: var(--surface); } 18%, 40% { transform: translateY(2px); border-bottom-width: 1px; background: var(--accent); color: #fff; border-color: var(--accent); } 55%, 100% { transform: none; } }
+.kt-ok { margin: 0; display: flex; gap: 8px; align-items: center; }
+.kt-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
+.kt-mini b { display: block; font-family: var(--font-display); font-size: 1.3rem; color: var(--text); }
+
+@media (max-width: 560px) { .choices { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .hero-caps kbd, .practice.shake { animation: none; } .kt-progress i { transition: none; } }
