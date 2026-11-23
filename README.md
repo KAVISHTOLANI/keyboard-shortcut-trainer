@@ -2,7 +2,7 @@
 
 A keyboard-shortcut trainer. Short timed rounds ask for an action, you press the real keys, and spaced repetition brings back the shortcuts you miss. Tracks first-try accuracy, median time and mastery per deck.
 
-**Live demo:** [https://keytempo.vercel.app/](https://keytempo.vercel.app/) — runs entirely in your browser.
+**Live demo:** [https://keytempo-app.vercel.app/](https://keytempo-app.vercel.app/) — runs entirely in your browser.
 
 ![Landing with a practice round preview](docs/landing.png)
 
